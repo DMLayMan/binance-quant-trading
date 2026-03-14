@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+
+# 虚拟环境
+.venv/
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 敏感信息
+.env
+*.key
+config/secrets.yaml
+
+# 日志和数据
+*.log
+data/
+*.db
+*.sqlite
+
+# 测试覆盖率
+.coverage
+htmlcov/
