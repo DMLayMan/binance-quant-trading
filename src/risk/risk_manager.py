@@ -2,10 +2,19 @@
 风控引擎
 
 负责仓位管理、风险指标计算、异常检测。
+包含：每日亏损限制、最大回撤熔断、预交易检查。
 """
 
 import numpy as np
 import pandas as pd
+import logging
+from dataclasses import dataclass
+from typing import Optional
+
+logger = logging.getLogger(__name__)
+
+
+# ==================== 仓位计算 ====================
 
 
 def kelly_fraction(
@@ -34,6 +43,9 @@ def kelly_fraction(
     f = max(0, f)  # 负值意味着不应该交易
 
     return f * kelly_factor
+
+
+# ==================== 绩效指标 ====================
 
 
 def compute_metrics(
@@ -91,6 +103,9 @@ def compute_metrics(
     }
 
 
+# ==================== 蒙特卡洛模拟 ====================
+
+
 def monte_carlo_simulation(
     trade_returns: np.ndarray, n_simulations: int = 1000
 ) -> dict:
@@ -126,6 +141,9 @@ def monte_carlo_simulation(
     }
 
 
+# ==================== 滑点模拟 ====================
+
+
 def simulate_slippage(
     price: float, volume: float, order_size: float, is_buy: bool
 ) -> float:
@@ -149,3 +167,189 @@ def simulate_slippage(
         return price * (1 + total_slippage)
     else:
         return price * (1 - total_slippage)
+
+
+# ==================== 实时风控引擎 ====================
+
+
+@dataclass
+class RiskState:
+    """风控状态追踪"""
+    initial_equity: float = 0.0
+    peak_equity: float = 0.0
+    daily_start_equity: float = 0.0
+    current_equity: float = 0.0
+    current_date: Optional[str] = None
+    total_trades_today: int = 0
+    consecutive_losses: int = 0
+    is_halted: bool = False
+    halt_reason: str = ""
+
+
+class RiskController:
+    """
+    实时风控引擎
+
+    提供：
+    - 每日最大亏损限制
+    - 最大回撤熔断
+    - 单笔仓位限制
+    - 连续亏损暂停
+    - 每日最大交易次数限制
+    - 预交易检查
+    """
+
+    def __init__(
+        self,
+        initial_equity: float,
+        max_daily_loss_pct: float = 0.05,
+        max_drawdown_pct: float = 0.15,
+        max_position_pct: float = 0.30,
+        max_single_loss_pct: float = 0.02,
+        max_trades_per_day: int = 50,
+        max_consecutive_losses: int = 5,
+    ):
+        self.max_daily_loss_pct = max_daily_loss_pct
+        self.max_drawdown_pct = max_drawdown_pct
+        self.max_position_pct = max_position_pct
+        self.max_single_loss_pct = max_single_loss_pct
+        self.max_trades_per_day = max_trades_per_day
+        self.max_consecutive_losses = max_consecutive_losses
+
+        self.state = RiskState(
+            initial_equity=initial_equity,
+            peak_equity=initial_equity,
+            daily_start_equity=initial_equity,
+            current_equity=initial_equity,
+        )
+
+    def update_equity(self, equity: float, date_str: Optional[str] = None):
+        """更新当前权益，触发日期变更时重置日内统计"""
+        self.state.current_equity = equity
+        self.state.peak_equity = max(self.state.peak_equity, equity)
+
+        if date_str and date_str != self.state.current_date:
+            self.state.current_date = date_str
+            self.state.daily_start_equity = equity
+            self.state.total_trades_today = 0
+            # 新的一天，如果是日内亏损熔断则解除
+            if self.state.is_halted and "daily" in self.state.halt_reason:
+                self.state.is_halted = False
+                self.state.halt_reason = ""
+                logger.info("Daily loss halt lifted on new trading day")
+
+    def record_trade(self, pnl: float):
+        """记录一笔交易的盈亏"""
+        self.state.total_trades_today += 1
+
+        if pnl < 0:
+            self.state.consecutive_losses += 1
+        else:
+            self.state.consecutive_losses = 0
+
+    def pre_trade_check(
+        self,
+        order_value: float,
+        current_price: float,
+        atr: float,
+        stop_loss_mult: float = 2.0,
+    ) -> tuple[bool, str]:
+        """
+        预交易风控检查
+
+        Args:
+            order_value: 拟下单金额 (USDT)
+            current_price: 当前价格
+            atr: 当前 ATR
+            stop_loss_mult: 止损 ATR 倍数
+
+        Returns:
+            (是否允许, 原因)
+        """
+        equity = self.state.current_equity
+
+        # 0. 检查是否已熔断
+        if self.state.is_halted:
+            return False, f"Trading halted: {self.state.halt_reason}"
+
+        # 1. 每日最大亏损检查
+        daily_pnl = equity - self.state.daily_start_equity
+        daily_loss_pct = daily_pnl / self.state.daily_start_equity
+        if daily_loss_pct <= -self.max_daily_loss_pct:
+            self.state.is_halted = True
+            self.state.halt_reason = f"daily loss limit ({daily_loss_pct:.2%})"
+            logger.warning(f"HALT: Daily loss limit reached: {daily_loss_pct:.2%}")
+            return False, self.state.halt_reason
+
+        # 2. 最大回撤检查
+        drawdown = (equity - self.state.peak_equity) / self.state.peak_equity
+        if drawdown <= -self.max_drawdown_pct:
+            self.state.is_halted = True
+            self.state.halt_reason = f"max drawdown limit ({drawdown:.2%})"
+            logger.warning(f"HALT: Max drawdown limit reached: {drawdown:.2%}")
+            return False, self.state.halt_reason
+
+        # 3. 仓位占比检查
+        position_pct = order_value / equity if equity > 0 else 1
+        if position_pct > self.max_position_pct:
+            return False, (
+                f"Position too large: {position_pct:.2%} > {self.max_position_pct:.2%}"
+            )
+
+        # 4. 单笔最大亏损检查
+        if atr > 0:
+            potential_loss = (atr * stop_loss_mult) * (order_value / current_price)
+            loss_pct = potential_loss / equity
+            if loss_pct > self.max_single_loss_pct:
+                return False, (
+                    f"Single trade risk too high: {loss_pct:.2%} > "
+                    f"{self.max_single_loss_pct:.2%}"
+                )
+
+        # 5. 日内交易次数检查
+        if self.state.total_trades_today >= self.max_trades_per_day:
+            return False, (
+                f"Daily trade limit reached: {self.state.total_trades_today}"
+            )
+
+        # 6. 连续亏损检查
+        if self.state.consecutive_losses >= self.max_consecutive_losses:
+            self.state.is_halted = True
+            self.state.halt_reason = (
+                f"consecutive losses ({self.state.consecutive_losses})"
+            )
+            logger.warning(
+                f"HALT: {self.state.consecutive_losses} consecutive losses"
+            )
+            return False, self.state.halt_reason
+
+        return True, "OK"
+
+    def get_status(self) -> dict:
+        """获取当前风控状态"""
+        equity = self.state.current_equity
+        return {
+            "current_equity": round(equity, 2),
+            "peak_equity": round(self.state.peak_equity, 2),
+            "drawdown_pct": round(
+                (equity - self.state.peak_equity) / self.state.peak_equity * 100, 2
+            ) if self.state.peak_equity > 0 else 0,
+            "daily_pnl": round(equity - self.state.daily_start_equity, 2),
+            "daily_pnl_pct": round(
+                (equity - self.state.daily_start_equity)
+                / self.state.daily_start_equity * 100, 2
+            ) if self.state.daily_start_equity > 0 else 0,
+            "trades_today": self.state.total_trades_today,
+            "consecutive_losses": self.state.consecutive_losses,
+            "is_halted": self.state.is_halted,
+            "halt_reason": self.state.halt_reason,
+        }
+
+    def reset_halt(self):
+        """手动解除熔断（需人工确认后调用）"""
+        logger.info(
+            f"Manual halt reset (was: {self.state.halt_reason})"
+        )
+        self.state.is_halted = False
+        self.state.halt_reason = ""
+        self.state.consecutive_losses = 0
