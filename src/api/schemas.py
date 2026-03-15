@@ -187,3 +187,22 @@ class SettingsUpdateRequest(BaseModel):
     risk: Optional[dict] = None
     fees: Optional[dict] = None
     logging: Optional[dict] = None
+
+
+# ==================== Environment Config ====================
+
+
+class EnvConfigResponse(BaseModel):
+    api_key_configured: bool
+    api_key_masked: str
+    api_secret_configured: bool
+    api_secret_masked: str
+    use_testnet: bool
+    connection_status: str
+    connection_error: Optional[str] = None
+
+
+class EnvConfigUpdateRequest(BaseModel):
+    api_key: Optional[str] = None
+    api_secret: Optional[str] = None
+    use_testnet: Optional[bool] = None

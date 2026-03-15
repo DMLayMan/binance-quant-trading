@@ -173,3 +173,21 @@ export interface SettingsResponse {
   fees: Record<string, unknown>;
   logging: Record<string, unknown>;
 }
+
+/* ── Environment Config ── */
+
+export interface EnvConfigResponse {
+  api_key_configured: boolean;
+  api_key_masked: string;
+  api_secret_configured: boolean;
+  api_secret_masked: string;
+  use_testnet: boolean;
+  connection_status: "connected" | "disconnected" | "error";
+  connection_error: string | null;
+}
+
+export interface EnvConfigUpdateRequest {
+  api_key?: string;
+  api_secret?: string;
+  use_testnet?: boolean;
+}

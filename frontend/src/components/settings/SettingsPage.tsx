@@ -1,5 +1,11 @@
 import { useEffect, useState } from "react";
-import { useSettings, useUpdateSettings } from "../../api/hooks.ts";
+import {
+  useSettings,
+  useUpdateSettings,
+  useEnvConfig,
+  useUpdateEnvConfig,
+} from "../../api/hooks.ts";
+import type { EnvConfigUpdateRequest } from "../../types/index.ts";
 import LoadingSpinner from "../shared/LoadingSpinner.tsx";
 
 export default function SettingsPage() {
@@ -11,6 +17,14 @@ export default function SettingsPage() {
   const [risk, setRisk] = useState<Record<string, unknown>>({});
   const [fees, setFees] = useState<Record<string, unknown>>({});
 
+  // ── Env Config 状态 ──
+  const { data: envConfig, isLoading: envLoading } = useEnvConfig();
+  const updateEnvMutation = useUpdateEnvConfig();
+  const [apiKey, setApiKey] = useState("");
+  const [apiSecret, setApiSecret] = useState("");
+  const [useTestnet, setUseTestnet] = useState(true);
+  const [envSaved, setEnvSaved] = useState(false);
+
   useEffect(() => {
     if (settings) {
       setStrategy(settings.strategy);
@@ -18,6 +32,12 @@ export default function SettingsPage() {
       setFees(settings.fees);
     }
   }, [settings]);
+
+  useEffect(() => {
+    if (envConfig) {
+      setUseTestnet(envConfig.use_testnet);
+    }
+  }, [envConfig]);
 
   function handleSave() {
     setSaved(false);
@@ -38,34 +58,135 @@ export default function SettingsPage() {
     );
   }
 
-  if (isLoading) return <LoadingSpinner />;
+  function handleEnvSave() {
+    setEnvSaved(false);
+    const payload: EnvConfigUpdateRequest = {};
+
+    if (apiKey.trim()) payload.api_key = apiKey.trim();
+    if (apiSecret.trim()) payload.api_secret = apiSecret.trim();
+    payload.use_testnet = useTestnet;
+
+    updateEnvMutation.mutate(payload, {
+      onSuccess: () => {
+        setEnvSaved(true);
+        setApiKey("");
+        setApiSecret("");
+        setTimeout(() => setEnvSaved(false), 3000);
+      },
+    });
+  }
+
+  if (isLoading || envLoading) return <LoadingSpinner />;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-white">Settings</h1>
-        <div className="flex items-center gap-3">
-          {saved && (
-            <span className="text-sm text-green-400">Saved!</span>
-          )}
-          <button
-            onClick={handleSave}
-            disabled={updateMutation.isPending}
-            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50"
-          >
-            {updateMutation.isPending ? "Saving..." : "Save"}
-          </button>
-        </div>
-      </div>
-
-      {updateMutation.isError && (
-        <p className="text-sm text-red-400">
-          {updateMutation.error?.message || "Failed to save"}
-        </p>
-      )}
+      <h1 className="text-2xl font-bold text-white">Settings</h1>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Strategy */}
+        {/* ── Exchange & API ── */}
+        <Section title="Exchange & API">
+          {/* 连接状态 */}
+          <div className="flex items-center gap-2">
+            <span
+              className={`h-2.5 w-2.5 rounded-full ${
+                envConfig?.connection_status === "connected"
+                  ? "bg-green-500"
+                  : envConfig?.connection_status === "error"
+                    ? "bg-red-500"
+                    : "bg-gray-500"
+              }`}
+            />
+            <span className="text-sm text-gray-300">
+              {envConfig?.connection_status === "connected"
+                ? "Connected"
+                : envConfig?.connection_status === "error"
+                  ? `Error: ${envConfig.connection_error}`
+                  : "Not connected"}
+            </span>
+          </div>
+
+          {/* API Key */}
+          <div>
+            <label className="mb-1 block text-xs text-gray-400">
+              API Key
+              {envConfig?.api_key_configured && (
+                <span className="ml-2 text-green-400">
+                  (Current: {envConfig.api_key_masked})
+                </span>
+              )}
+            </label>
+            <input
+              type="password"
+              autoComplete="new-password"
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              placeholder={
+                envConfig?.api_key_configured
+                  ? "Enter new key to update"
+                  : "Enter API key"
+              }
+              className="w-full rounded-lg bg-gray-700 px-3 py-2 text-sm text-gray-200 border border-gray-600 focus:outline-none focus:border-blue-500"
+            />
+          </div>
+
+          {/* API Secret */}
+          <div>
+            <label className="mb-1 block text-xs text-gray-400">
+              API Secret
+              {envConfig?.api_secret_configured && (
+                <span className="ml-2 text-green-400">
+                  (Current: {envConfig.api_secret_masked})
+                </span>
+              )}
+            </label>
+            <input
+              type="password"
+              autoComplete="new-password"
+              value={apiSecret}
+              onChange={(e) => setApiSecret(e.target.value)}
+              placeholder={
+                envConfig?.api_secret_configured
+                  ? "Enter new secret to update"
+                  : "Enter API secret"
+              }
+              className="w-full rounded-lg bg-gray-700 px-3 py-2 text-sm text-gray-200 border border-gray-600 focus:outline-none focus:border-blue-500"
+            />
+          </div>
+
+          {/* Testnet 开关 */}
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={useTestnet}
+              onChange={(e) => setUseTestnet(e.target.checked)}
+              className="h-4 w-4 rounded bg-gray-700 border-gray-600"
+            />
+            <label className="text-sm text-gray-300">
+              Use Testnet (Sandbox)
+            </label>
+          </div>
+
+          {/* 保存按钮 */}
+          <div className="flex items-center gap-3 pt-2">
+            <button
+              onClick={handleEnvSave}
+              disabled={updateEnvMutation.isPending}
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50"
+            >
+              {updateEnvMutation.isPending ? "Saving..." : "Save API Config"}
+            </button>
+            {envSaved && (
+              <span className="text-sm text-green-400">Saved!</span>
+            )}
+            {updateEnvMutation.isError && (
+              <span className="text-sm text-red-400">
+                {updateEnvMutation.error?.message || "Failed to save"}
+              </span>
+            )}
+          </div>
+        </Section>
+
+        {/* ── Strategy ── */}
         <Section title="Strategy">
           <Field
             label="Name"
@@ -105,7 +226,7 @@ export default function SettingsPage() {
             )}
         </Section>
 
-        {/* Risk */}
+        {/* ── Risk ── */}
         <Section title="Risk">
           {[
             ["max_position_pct", "Max Position %"],
@@ -128,7 +249,7 @@ export default function SettingsPage() {
           ))}
         </Section>
 
-        {/* Fees */}
+        {/* ── Fees ── */}
         <Section title="Fees">
           <Field
             label="Maker Fee"
@@ -156,20 +277,23 @@ export default function SettingsPage() {
             <label className="text-sm text-gray-300">BNB Fee Discount</label>
           </div>
         </Section>
+      </div>
 
-        {/* Exchange (read-only) */}
-        <Section title="Exchange (read-only)">
-          {settings?.exchange &&
-            Object.entries(settings.exchange as Record<string, unknown>).map(([k, v]) => (
-              <div
-                key={k}
-                className="flex justify-between border-b border-gray-700/50 py-2 text-sm"
-              >
-                <span className="text-gray-400">{k}</span>
-                <span className="text-gray-300">{String(v)}</span>
-              </div>
-            ))}
-        </Section>
+      {/* ── Strategy / Risk / Fees 全局保存 ── */}
+      <div className="flex items-center gap-3">
+        <button
+          onClick={handleSave}
+          disabled={updateMutation.isPending}
+          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50"
+        >
+          {updateMutation.isPending ? "Saving..." : "Save Settings"}
+        </button>
+        {saved && <span className="text-sm text-green-400">Saved!</span>}
+        {updateMutation.isError && (
+          <p className="text-sm text-red-400">
+            {updateMutation.error?.message || "Failed to save"}
+          </p>
+        )}
       </div>
     </div>
   );

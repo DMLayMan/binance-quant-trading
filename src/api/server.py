@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from api.dependencies import lifespan
-from api.routers import overview, market, strategies, backtest, risk, settings
+from api.routers import overview, market, strategies, backtest, risk, settings, funds, instances, orders_trades
 
 logging.basicConfig(
     level=logging.INFO,
@@ -41,6 +41,9 @@ app.include_router(strategies.router, prefix="/api/strategies", tags=["strategie
 app.include_router(backtest.router, prefix="/api/backtest", tags=["backtest"])
 app.include_router(risk.router, prefix="/api/risk", tags=["risk"])
 app.include_router(settings.router, prefix="/api/settings", tags=["settings"])
+app.include_router(funds.router, prefix="/api/funds", tags=["funds"])
+app.include_router(instances.router, prefix="/api/instances", tags=["instances"])
+app.include_router(orders_trades.router, prefix="/api", tags=["orders_trades"])
 
 
 @app.get("/api/health")

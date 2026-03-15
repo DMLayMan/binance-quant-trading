@@ -12,6 +12,8 @@ import type {
   RiskStatusResponse,
   RiskConfigResponse,
   SettingsResponse,
+  EnvConfigResponse,
+  EnvConfigUpdateRequest,
 } from "../types/index.ts";
 
 /* ── Overview ── */
@@ -154,6 +156,28 @@ export function useUpdateSettings() {
       (await client.put<SettingsResponse>("/settings", body)).data,
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["settings"] });
+    },
+  });
+}
+
+/* ── Environment Config ── */
+
+export function useEnvConfig() {
+  return useQuery<EnvConfigResponse>({
+    queryKey: ["env-config"],
+    queryFn: async () =>
+      (await client.get<EnvConfigResponse>("/settings/env")).data,
+  });
+}
+
+export function useUpdateEnvConfig() {
+  const qc = useQueryClient();
+  return useMutation<EnvConfigResponse, Error, EnvConfigUpdateRequest>({
+    mutationFn: async (body) =>
+      (await client.put<EnvConfigResponse>("/settings/env", body)).data,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["env-config"] });
+      void qc.invalidateQueries({ queryKey: ["overview"] });
     },
   });
 }
