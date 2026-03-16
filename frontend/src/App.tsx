@@ -6,6 +6,9 @@ import StrategiesPage from "./components/strategies/StrategiesPage.tsx";
 import BacktestPage from "./components/backtest/BacktestPage.tsx";
 import RiskPage from "./components/risk/RiskPage.tsx";
 import SettingsPage from "./components/settings/SettingsPage.tsx";
+import FundsPage from "./components/funds/FundsPage.tsx";
+import InstancesPage from "./components/instances/InstancesPage.tsx";
+import TradesPage from "./components/trades/TradesPage.tsx";
 
 export default function App() {
   return (
@@ -15,6 +18,9 @@ export default function App() {
         <Routes>
           <Route path="/" element={<OverviewPage />} />
           <Route path="/market" element={<MarketPage />} />
+          <Route path="/funds" element={<FundsPage />} />
+          <Route path="/instances" element={<InstancesPage />} />
+          <Route path="/trades" element={<TradesPage />} />
           <Route path="/strategies" element={<StrategiesPage />} />
           <Route path="/backtest" element={<BacktestPage />} />
           <Route path="/risk" element={<RiskPage />} />

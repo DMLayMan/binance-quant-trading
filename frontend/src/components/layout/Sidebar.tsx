@@ -8,12 +8,18 @@ import {
   Settings,
   Menu,
   X,
+  Wallet,
+  Bot,
+  ArrowLeftRight,
 } from "lucide-react";
 import { useState } from "react";
 
 const links = [
   { to: "/", label: "Overview", icon: LayoutDashboard },
   { to: "/market", label: "Market", icon: BarChart3 },
+  { to: "/funds", label: "Fund Pools", icon: Wallet },
+  { to: "/instances", label: "Instances", icon: Bot },
+  { to: "/trades", label: "Trades", icon: ArrowLeftRight },
   { to: "/strategies", label: "Strategies", icon: Brain },
   { to: "/backtest", label: "Backtest", icon: FlaskConical },
   { to: "/risk", label: "Risk", icon: Shield },

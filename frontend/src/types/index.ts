@@ -191,3 +191,145 @@ export interface EnvConfigUpdateRequest {
   api_secret?: string;
   use_testnet?: boolean;
 }
+
+/* ── Fund Pool ── */
+
+export interface FundPoolResponse {
+  id: string;
+  name: string;
+  allocated_amount: number;
+  current_equity: number;
+  peak_equity: number;
+  status: string;
+  max_daily_loss_pct: number;
+  max_drawdown_pct: number;
+  take_profit_pct: number | null;
+  stop_loss_pct: number | null;
+  daily_start_equity: number;
+  pnl: number;
+  pnl_pct: number;
+  drawdown_pct: number;
+  instance_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateFundPoolRequest {
+  name: string;
+  allocated_amount: number;
+  max_daily_loss_pct?: number;
+  max_drawdown_pct?: number;
+  take_profit_pct?: number | null;
+  stop_loss_pct?: number | null;
+}
+
+export interface UpdateFundPoolRequest {
+  name?: string;
+  max_daily_loss_pct?: number;
+  max_drawdown_pct?: number;
+  take_profit_pct?: number | null;
+  stop_loss_pct?: number | null;
+}
+
+/* ── Strategy Instance ── */
+
+export interface InstanceResponse {
+  id: string;
+  fund_pool_id: string;
+  strategy_name: string;
+  symbol: string;
+  timeframe: string;
+  params: Record<string, unknown>;
+  stop_loss_atr_mult: number;
+  take_profit_atr_mult: number;
+  max_position_pct: number;
+  risk_per_trade_pct: number;
+  status: string;
+  current_position: number;
+  entry_price: number;
+  unrealized_pnl: number;
+  total_pnl: number;
+  trade_count: number;
+  win_count: number;
+  win_rate: number;
+  consecutive_losses: number;
+  last_signal: number;
+  last_signal_time: string | null;
+  next_check_time: string;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateInstanceRequest {
+  fund_pool_id: string;
+  strategy_name: string;
+  symbol?: string;
+  timeframe?: string;
+  params?: Record<string, unknown>;
+  stop_loss_atr_mult?: number;
+  take_profit_atr_mult?: number;
+  max_position_pct?: number;
+  risk_per_trade_pct?: number;
+}
+
+/* ── Orders & Trades ── */
+
+export interface OrderResponse {
+  id: string;
+  exchange_order_id: string | null;
+  strategy_instance_id: string;
+  symbol: string;
+  side: string;
+  order_type: string;
+  amount: number;
+  price: number | null;
+  filled_amount: number;
+  fee: number;
+  status: string;
+  reason: string | null;
+  created_at: string;
+  filled_at: string | null;
+}
+
+export interface TradeResponse {
+  id: string;
+  strategy_instance_id: string;
+  fund_pool_id: string;
+  symbol: string;
+  side: string;
+  entry_price: number;
+  exit_price: number;
+  amount: number;
+  pnl: number;
+  pnl_pct: number;
+  total_fee: number;
+  holding_seconds: number;
+  exit_reason: string | null;
+  entry_time: string;
+  exit_time: string;
+}
+
+export interface TradeStatsResponse {
+  total_trades: number;
+  winning_trades: number;
+  losing_trades: number;
+  win_rate: number;
+  total_pnl: number;
+  avg_pnl: number;
+  avg_win: number;
+  avg_loss: number;
+  max_win: number;
+  max_loss: number;
+  total_fees: number;
+  avg_holding_seconds: number;
+}
+
+export interface RiskEventResponse {
+  id: number;
+  strategy_instance_id: string | null;
+  fund_pool_id: string | null;
+  event_type: string;
+  message: string;
+  timestamp: string;
+}
