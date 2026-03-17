@@ -23,6 +23,7 @@ from core.models import (
 from data.market_data import fetch_ohlcv
 from utils.indicators import compute_atr, compute_rsi
 from main import STRATEGY_REGISTRY
+from core.notifier import notify, NotifyLevel
 
 logger = logging.getLogger(__name__)
 
@@ -198,6 +199,7 @@ def execute_strategy_tick(inst: StrategyInstance, exchange) -> dict:
         if _check_pool_take_profit(pool):
             record_risk_event("take_profit_target", "Fund pool reached take-profit target",
                               fund_pool_id=pool.id)
+            notify(NotifyLevel.INFO, f"Pool '{pool.name}' reached take-profit target, stopping.")
             # 平掉持仓并停止
             if inst.current_position > 0:
                 _close_position(inst, pool, exchange, current_price, "pool_take_profit")
@@ -212,6 +214,7 @@ def execute_strategy_tick(inst: StrategyInstance, exchange) -> dict:
         if not pool_ok:
             record_risk_event("pool_risk_halt", pool_reason, fund_pool_id=pool.id,
                               strategy_instance_id=inst.id)
+            notify(NotifyLevel.CRITICAL, f"Pool '{pool.name}' risk halt: {pool_reason}")
             if "stop-loss" in pool_reason.lower():
                 # 总止损触发 → 平仓 + 停止
                 if inst.current_position > 0:
@@ -246,6 +249,7 @@ def execute_strategy_tick(inst: StrategyInstance, exchange) -> dict:
             if not strat_ok:
                 record_risk_event("strategy_risk_block", strat_reason,
                                   strategy_instance_id=inst.id)
+                notify(NotifyLevel.WARNING, f"Strategy risk block on {inst.symbol}: {strat_reason}")
                 result["action"] = "risk_blocked"
                 result["message"] = strat_reason
                 _schedule_next(inst)

@@ -23,6 +23,9 @@ import type {
   TradeResponse,
   TradeStatsResponse,
   RiskEventResponse,
+  DashboardResponse,
+  NotifyConfigResponse,
+  NotifyConfigUpdate,
 } from "../types/index.ts";
 
 /* ── Overview ── */
@@ -321,5 +324,48 @@ export function useRiskEvents(fundPoolId?: string, instanceId?: string, limit = 
       return (await client.get<RiskEventResponse[]>("/risk-events", { params })).data;
     },
     refetchInterval: 30_000,
+  });
+}
+
+/* ── Dashboard ── */
+
+export function useDashboard() {
+  return useQuery<DashboardResponse>({
+    queryKey: ["dashboard"],
+    queryFn: async () =>
+      (await client.get<DashboardResponse>("/dashboard")).data,
+    refetchInterval: 10_000,
+  });
+}
+
+/* ── CSV Export ── */
+
+export function exportTradesCSV(fundPoolId?: string, instanceId?: string) {
+  const params = new URLSearchParams();
+  if (fundPoolId) params.set("fund_pool_id", fundPoolId);
+  if (instanceId) params.set("strategy_instance_id", instanceId);
+  const qs = params.toString();
+  const url = `/api/trades/export${qs ? `?${qs}` : ""}`;
+  window.open(url, "_blank");
+}
+
+/* ── Notification Config ── */
+
+export function useNotifyConfig() {
+  return useQuery<NotifyConfigResponse>({
+    queryKey: ["notify-config"],
+    queryFn: async () =>
+      (await client.get<NotifyConfigResponse>("/settings/notify")).data,
+  });
+}
+
+export function useUpdateNotifyConfig() {
+  const qc = useQueryClient();
+  return useMutation<NotifyConfigResponse, Error, NotifyConfigUpdate>({
+    mutationFn: async (body) =>
+      (await client.put<NotifyConfigResponse>("/settings/notify", body)).data,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["notify-config"] });
+    },
   });
 }

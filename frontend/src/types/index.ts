@@ -333,3 +333,66 @@ export interface RiskEventResponse {
   message: string;
   timestamp: string;
 }
+
+/* ── Dashboard ── */
+
+export interface PoolSummary {
+  id: string;
+  name: string;
+  status: string;
+  current_equity: number;
+  pnl: number;
+  pnl_pct: number;
+  instance_count: number;
+}
+
+export interface InstanceSummary {
+  id: string;
+  strategy_name: string;
+  symbol: string;
+  timeframe: string;
+  status: string;
+  total_pnl: number;
+  trade_count: number;
+}
+
+export interface RecentTrade {
+  id: string;
+  symbol: string;
+  side: string;
+  pnl: number;
+  pnl_pct: number;
+  exit_reason: string | null;
+  exit_time: string;
+}
+
+/* ── Notification Config ── */
+
+export interface NotifyConfigResponse {
+  telegram_configured: boolean;
+  telegram_chat_id_masked: string;
+  webhook_configured: boolean;
+  webhook_url_masked: string;
+}
+
+export interface NotifyConfigUpdate {
+  telegram_bot_token?: string;
+  telegram_chat_id?: string;
+  webhook_url?: string;
+}
+
+/* ── Dashboard ── */
+
+export interface DashboardResponse {
+  total_allocated: number;
+  total_equity: number;
+  total_pnl: number;
+  total_pnl_pct: number;
+  active_pools: number;
+  running_instances: number;
+  total_trades: number;
+  pools: PoolSummary[];
+  active_instances: InstanceSummary[];
+  recent_trades: RecentTrade[];
+  recent_risk_events: number;
+}

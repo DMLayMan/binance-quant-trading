@@ -154,3 +154,67 @@ def update_env_config(req: EnvConfigUpdateRequest):
 
     # 返回更新后的状态
     return get_env_config()
+
+
+# ==================== 通知配置路由 ====================
+
+
+class NotifyConfigResponse:
+    pass  # placeholder for import check
+
+
+from pydantic import BaseModel as _BM
+
+
+class NotifyConfigResp(_BM):
+    telegram_configured: bool
+    telegram_chat_id_masked: str
+    webhook_configured: bool
+    webhook_url_masked: str
+
+
+class NotifyConfigUpdate(_BM):
+    telegram_bot_token: str = None
+    telegram_chat_id: str = None
+    webhook_url: str = None
+
+
+@router.get("/notify", response_model=NotifyConfigResp)
+def get_notify_config():
+    """获取通知配置（掩码）"""
+    env_values = dotenv_values(ENV_PATH) if os.path.exists(ENV_PATH) else {}
+
+    tg_token = env_values.get("BQT_TELEGRAM_BOT_TOKEN", "")
+    tg_chat = env_values.get("BQT_TELEGRAM_CHAT_ID", "")
+    webhook = env_values.get("BQT_WEBHOOK_URL", "")
+
+    return NotifyConfigResp(
+        telegram_configured=bool(tg_token and tg_chat),
+        telegram_chat_id_masked=_mask_key(tg_chat) if tg_chat else "",
+        webhook_configured=bool(webhook),
+        webhook_url_masked=(webhook[:20] + "...") if len(webhook) > 20 else webhook,
+    )
+
+
+@router.put("/notify", response_model=NotifyConfigResp)
+def update_notify_config(req: NotifyConfigUpdate):
+    """更新通知配置"""
+    if not os.path.exists(ENV_PATH):
+        with open(ENV_PATH, "w") as f:
+            f.write("# BQT Environment Config\n")
+
+    if req.telegram_bot_token is not None:
+        set_key(ENV_PATH, "BQT_TELEGRAM_BOT_TOKEN", req.telegram_bot_token)
+    if req.telegram_chat_id is not None:
+        set_key(ENV_PATH, "BQT_TELEGRAM_CHAT_ID", req.telegram_chat_id)
+    if req.webhook_url is not None:
+        set_key(ENV_PATH, "BQT_WEBHOOK_URL", req.webhook_url)
+
+    load_dotenv(ENV_PATH, override=True)
+
+    # 重新初始化通知器
+    from core.notifier import get_notifier
+    notifier = get_notifier()
+    notifier.__init__()  # re-init channels from env
+
+    return get_notify_config()

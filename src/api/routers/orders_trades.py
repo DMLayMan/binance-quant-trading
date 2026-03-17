@@ -1,6 +1,10 @@
-"""Orders & Trades 路由 — 订单和成交记录查询"""
+"""Orders & Trades 路由 — 订单和成交记录查询 + CSV 导出"""
+
+import csv
+import io
 
 from fastapi import APIRouter, Query
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional
 
@@ -170,6 +174,41 @@ def get_risk_events(
         return [RiskEventResponse(**dict(r)) for r in rows]
     finally:
         conn.close()
+
+
+@router.get("/trades/export")
+def export_trades_csv(
+    fund_pool_id: Optional[str] = Query(None),
+    strategy_instance_id: Optional[str] = Query(None),
+):
+    """导出成交记录为 CSV"""
+    trades = list_trades(
+        strategy_instance_id=strategy_instance_id,
+        fund_pool_id=fund_pool_id,
+        limit=100000,
+    )
+
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow([
+        "ID", "Symbol", "Side", "Entry Price", "Exit Price", "Amount",
+        "P&L", "P&L %", "Fee", "Holding (s)", "Exit Reason",
+        "Entry Time", "Exit Time",
+    ])
+    for t in trades:
+        writer.writerow([
+            t.id, t.symbol, t.side, t.entry_price, t.exit_price, t.amount,
+            round(t.pnl, 4), round(t.pnl_pct, 4), round(t.total_fee, 4),
+            t.holding_seconds, t.exit_reason or "",
+            t.entry_time, t.exit_time,
+        ])
+
+    buf.seek(0)
+    return StreamingResponse(
+        buf,
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=trades.csv"},
+    )
 
 
 # ==================== 辅助 ====================

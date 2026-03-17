@@ -10,6 +10,8 @@ RUN npm run build
 FROM python:3.11-slim
 WORKDIR /app
 
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
@@ -17,12 +19,17 @@ COPY src/ ./src/
 COPY config/ ./config/
 COPY --from=frontend-build /app/frontend/dist ./frontend/dist
 
-RUN mkdir -p /app/logs
+RUN mkdir -p /app/logs /app/data
 
 WORKDIR /app/src
 
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
+ENV BQT_DB_PATH=/app/data/bqt.db
 
-# 默认启动 API 服务器（交易机器人可单独启动）
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=10s \
+  CMD curl -f http://localhost:8000/api/health || exit 1
+
 CMD ["uvicorn", "api.server:app", "--host", "0.0.0.0", "--port", "8000"]

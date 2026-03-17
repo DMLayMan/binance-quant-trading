@@ -137,7 +137,8 @@ def update_pool(pool_id: str, req: UpdateFundPoolRequest):
     if not pool:
         raise HTTPException(404, "Fund pool not found")
 
-    updates = {k: v for k, v in req.model_dump().items() if v is not None}
+    dump = req.model_dump() if hasattr(req, "model_dump") else req.dict()
+    updates = {k: v for k, v in dump.items() if v is not None}
     if not updates:
         raise HTTPException(400, "No fields to update")
 

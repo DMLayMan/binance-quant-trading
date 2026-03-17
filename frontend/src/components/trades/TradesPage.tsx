@@ -4,6 +4,7 @@ import {
   useTrades,
   useTradeStats,
   useRiskEvents,
+  exportTradesCSV,
 } from "../../api/hooks.ts";
 import MetricCard from "../shared/MetricCard.tsx";
 import LoadingSpinner from "../shared/LoadingSpinner.tsx";
@@ -36,7 +37,15 @@ export default function TradesPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-white">Orders & Trades</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-white">Orders & Trades</h1>
+        <button
+          onClick={() => exportTradesCSV()}
+          className="rounded-lg bg-gray-700 px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-600"
+        >
+          Export CSV
+        </button>
+      </div>
 
       {/* Stats Cards */}
       {stats && stats.total_trades > 0 && (

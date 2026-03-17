@@ -214,7 +214,8 @@ def update_instance(instance_id: str, req: UpdateInstanceRequest):
         raise HTTPException(400, f"Cannot update instance with status '{inst.status}'. "
                                   "Pause it first.")
 
-    updates = {k: v for k, v in req.model_dump().items() if v is not None}
+    dump = req.model_dump() if hasattr(req, "model_dump") else req.dict()
+    updates = {k: v for k, v in dump.items() if v is not None}
     if not updates:
         raise HTTPException(400, "No fields to update")
 

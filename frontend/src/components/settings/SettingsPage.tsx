@@ -4,8 +4,10 @@ import {
   useUpdateSettings,
   useEnvConfig,
   useUpdateEnvConfig,
+  useNotifyConfig,
+  useUpdateNotifyConfig,
 } from "../../api/hooks.ts";
-import type { EnvConfigUpdateRequest } from "../../types/index.ts";
+import type { EnvConfigUpdateRequest, NotifyConfigUpdate } from "../../types/index.ts";
 import LoadingSpinner from "../shared/LoadingSpinner.tsx";
 
 export default function SettingsPage() {
@@ -24,6 +26,14 @@ export default function SettingsPage() {
   const [apiSecret, setApiSecret] = useState("");
   const [useTestnet, setUseTestnet] = useState(true);
   const [envSaved, setEnvSaved] = useState(false);
+
+  // ── Notify Config 状态 ──
+  const { data: notifyConfig } = useNotifyConfig();
+  const updateNotifyMutation = useUpdateNotifyConfig();
+  const [tgBotToken, setTgBotToken] = useState("");
+  const [tgChatId, setTgChatId] = useState("");
+  const [webhookUrl, setWebhookUrl] = useState("");
+  const [notifySaved, setNotifySaved] = useState(false);
 
   useEffect(() => {
     if (settings) {
@@ -72,6 +82,24 @@ export default function SettingsPage() {
         setApiKey("");
         setApiSecret("");
         setTimeout(() => setEnvSaved(false), 3000);
+      },
+    });
+  }
+
+  function handleNotifySave() {
+    setNotifySaved(false);
+    const payload: NotifyConfigUpdate = {};
+    if (tgBotToken.trim()) payload.telegram_bot_token = tgBotToken.trim();
+    if (tgChatId.trim()) payload.telegram_chat_id = tgChatId.trim();
+    if (webhookUrl.trim()) payload.webhook_url = webhookUrl.trim();
+
+    updateNotifyMutation.mutate(payload, {
+      onSuccess: () => {
+        setNotifySaved(true);
+        setTgBotToken("");
+        setTgChatId("");
+        setWebhookUrl("");
+        setTimeout(() => setNotifySaved(false), 3000);
       },
     });
   }
@@ -247,6 +275,68 @@ export default function SettingsPage() {
               }
             />
           ))}
+        </Section>
+
+        {/* ── Notifications ── */}
+        <Section title="Notifications">
+          <div className="flex items-center gap-2">
+            <span className={`h-2.5 w-2.5 rounded-full ${notifyConfig?.telegram_configured ? "bg-green-500" : "bg-gray-500"}`} />
+            <span className="text-sm text-gray-300">
+              Telegram: {notifyConfig?.telegram_configured
+                ? `Configured (${notifyConfig.telegram_chat_id_masked})`
+                : "Not configured"}
+            </span>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-gray-400">Telegram Bot Token</label>
+            <input
+              type="password"
+              autoComplete="new-password"
+              value={tgBotToken}
+              onChange={(e) => setTgBotToken(e.target.value)}
+              placeholder="Enter bot token"
+              className="w-full rounded-lg bg-gray-700 px-3 py-2 text-sm text-gray-200 border border-gray-600 focus:outline-none focus:border-blue-500"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-gray-400">Telegram Chat ID</label>
+            <input
+              type="password"
+              autoComplete="new-password"
+              value={tgChatId}
+              onChange={(e) => setTgChatId(e.target.value)}
+              placeholder="Enter chat ID"
+              className="w-full rounded-lg bg-gray-700 px-3 py-2 text-sm text-gray-200 border border-gray-600 focus:outline-none focus:border-blue-500"
+            />
+          </div>
+          <div className="flex items-center gap-2 pt-1">
+            <span className={`h-2.5 w-2.5 rounded-full ${notifyConfig?.webhook_configured ? "bg-green-500" : "bg-gray-500"}`} />
+            <span className="text-sm text-gray-300">
+              Webhook: {notifyConfig?.webhook_configured
+                ? `Configured (${notifyConfig.webhook_url_masked})`
+                : "Not configured"}
+            </span>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-gray-400">Webhook URL</label>
+            <input
+              type="text"
+              value={webhookUrl}
+              onChange={(e) => setWebhookUrl(e.target.value)}
+              placeholder="https://..."
+              className="w-full rounded-lg bg-gray-700 px-3 py-2 text-sm text-gray-200 border border-gray-600 focus:outline-none focus:border-blue-500"
+            />
+          </div>
+          <div className="flex items-center gap-3 pt-2">
+            <button
+              onClick={handleNotifySave}
+              disabled={updateNotifyMutation.isPending}
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50"
+            >
+              {updateNotifyMutation.isPending ? "Saving..." : "Save Notifications"}
+            </button>
+            {notifySaved && <span className="text-sm text-green-400">Saved!</span>}
+          </div>
         </Section>
 
         {/* ── Fees ── */}
