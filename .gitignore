@@ -33,6 +33,13 @@ data/
 *.db
 *.sqlite
 
+# Vite 缓存
+src/.vite/
+
+# Node
+node_modules/
+frontend/dist/
+
 # 测试覆盖率
 .coverage
 htmlcov/

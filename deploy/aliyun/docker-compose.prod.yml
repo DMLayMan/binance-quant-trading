@@ -1,0 +1,97 @@
+version: "3.8"
+
+services:
+  # ============ 交易机器人 ============
+  trading-bot:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    container_name: bqt-bot
+    command: ["python", "main.py"]
+    restart: unless-stopped
+    env_file:
+      - ../../.env
+    volumes:
+      - ../../config:/app/config:ro
+      - bot-logs:/app/logs
+    networks:
+      - bqt-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  # ============ Dashboard API + 前端静态文件 ============
+  dashboard:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    container_name: bqt-dashboard
+    restart: unless-stopped
+    env_file:
+      - ../../.env
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - ../../config:/app/config
+      - bot-logs:/app/logs:ro
+    networks:
+      - bqt-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/risk/status"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  # ============ Nginx 反向代理 + HTTPS ============
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: bqt-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - certbot-etc:/etc/letsencrypt:ro
+      - certbot-var:/var/lib/letsencrypt
+      - certbot-webroot:/var/www/certbot
+    depends_on:
+      dashboard:
+        condition: service_healthy
+    networks:
+      - bqt-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "3"
+
+  # ============ Certbot 自动续期 SSL ============
+  certbot:
+    image: certbot/certbot
+    container_name: bqt-certbot
+    volumes:
+      - certbot-etc:/etc/letsencrypt
+      - certbot-var:/var/lib/letsencrypt
+      - certbot-webroot:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h & wait $${!}; done'"
+    networks:
+      - bqt-net
+
+volumes:
+  bot-logs:
+  certbot-etc:
+  certbot-var:
+  certbot-webroot:
+
+networks:
+  bqt-net:
+    driver: bridge

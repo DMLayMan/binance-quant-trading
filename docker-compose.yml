@@ -1,0 +1,52 @@
+version: "3.8"
+
+services:
+  # 管理化交易平台（API + 调度引擎 + 前端）
+  dashboard:
+    build: .
+    container_name: bqt-dashboard
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./config:/app/config
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./.env:/app/.env
+    environment:
+      - BQT_DB_PATH=/app/data/bqt.db
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  # 独立交易机器人（可选，用于独立运行策略）
+  trading-bot:
+    build: .
+    container_name: bqt-trading-bot
+    command: ["python", "main.py"]
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./config:/app/config:ro
+      - ./data:/app/data
+      - ./logs:/app/logs
+    environment:
+      - BQT_DB_PATH=/app/data/bqt.db
+    profiles:
+      - bot
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
